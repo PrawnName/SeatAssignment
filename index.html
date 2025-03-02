@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>座席割り当て (Safari対応)</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        #output { white-space: pre-wrap; border: 1px solid #ccc; padding: 10px; }
+        .section { margin-bottom: 20px; }
+        #final-section { display: none; }
+        .final-result { font-size: 1.5em; font-weight: bold; } /* 最終結果のテキストサイズを大きく */
+    </style>
+</head>
+<body>
+    <h1>飲み会座席決め</h1>
+    <div class="section" id="seat-count-section">
+        <label>座席数 (1~20):</label>
+        <input type="number" id="num_seats" min="1" max="10">
+        <button onclick="startAssignment()">開始</button>
+    </div>
+    <div class="section" id="specify-section" style="display: none;">
+        <label>座席指定を行いますか？ (y/n):</label>
+        <input type="text" id="specify_choice" maxlength="1">
+        <button onclick="handleSpecifyChoice()">決定</button>
+    </div>
+    <div class="section" id="assign-specific-section" style="display: none;">
+        <label>名前:</label>
+        <input type="text" id="specific_name">
+        <label>座席番号:</label>
+        <input type="number" id="specific_seat">
+        <button onclick="assignSpecificSeat()">割り当て</button>
+    </div>
+    <div class="section" id="assign-random-section" style="display: none;">
+        <label>名前:</label>
+        <input type="text" id="random_name">
+        <button onclick="assignRandomSeat()">ランダム割り当て</button>
+    </div>
+    <div class="section" id="final-section">
+        <button onclick="resetProgram()">リセット</button>
+    </div>
+    <pre id="output"></pre>
+
+    <script>
+        let numSeats = 0;
+        let assignedSeats = {};
+        let names = [];
+        let currentIndex = 0;
+
+        function output(text, isFinal = false) {
+            const outputElement = document.getElementById('output');
+            if (isFinal) {
+                outputElement.innerHTML += `<span class="final-result">${text}</span>\n`;
+            } else {
+                outputElement.innerText += text + '\n';
+            }
+        }
+
+        function displayCurrentSeats() {
+            output('\n現在の座席状況:');
+            for (let i = 1; i <= numSeats; i++) {
+                if (assignedSeats[i]) {
+                    output(`座席 ${i}: ${assignedSeats[i]}`);
+                } else {
+                    output(`座席 ${i}: 未割り当て`);
+                }
+            }
+        }
+
+        function startAssignment() {
+            numSeats = parseInt(document.getElementById('num_seats').value);
+            if (numSeats < 1 || numSeats > 20) {
+                output('座席数は1から20の間で指定してください。');
+                return;
+            }
+            output(`座席数を${numSeats}に設定しました。`);
+            document.getElementById('seat-count-section').style.display = 'none';
+            document.getElementById('specify-section').style.display = 'block';
+        }
+
+        function handleSpecifyChoice() {
+            const choice = document.getElementById('specify_choice').value.toLowerCase();
+            if (choice === 'y') {
+                document.getElementById('specify-section').style.display = 'none';
+                document.getElementById('assign-specific-section').style.display = 'block';
+            } else if (choice === 'n') {
+                document.getElementById('specify-section').style.display = 'none';
+                document.getElementById('assign-random-section').style.display = 'block';
+                output('\n残りの座席をランダムに割り当てます。');
+            } else {
+                output('「y」または「n」を入力してください。');
+            }
+        }
+
+        function assignSpecificSeat() {
+            const name = document.getElementById('specific_name').value;
+            const seat = parseInt(document.getElementById('specific_seat').value);
+            if (!name || isNaN(seat) || seat < 1 || seat > numSeats) {
+                output(`座席番号は1から${numSeats}の間で指定してください。`);
+                return;
+            }
+            if (assignedSeats[seat]) {
+                output('その座席は既に割り当てられています。');
+                return;
+            }
+            assignedSeats[seat] = name;
+            names.push(name);
+            currentIndex++;
+            output(`結果: ${name} -> 座席 ${seat}`);
+            displayCurrentSeats();
+
+            if (currentIndex < numSeats) {
+                const continueSpecify = confirm('さらに座席指定をしますか？');
+                if (!continueSpecify) {
+                    document.getElementById('assign-specific-section').style.display = 'none';
+                    document.getElementById('assign-random-section').style.display = 'block';
+                    output('\n残りの座席をランダムに割り当てます。');
+                }
+            } else {
+                showFinalResult();
+            }
+            document.getElementById('specific_name').value = '';
+            document.getElementById('specific_seat').value = '';
+        }
+
+        function assignRandomSeat() {
+            const name = document.getElementById('random_name').value;
+            if (!name) {
+                output('名前を入力してください。');
+                return;
+            }
+            if (currentIndex >= numSeats) {
+                output('これ以上割り当てできません。');
+                showFinalResult();
+                return;
+            }
+            let availableSeats = [];
+            for (let i = 1; i <= numSeats; i++) {
+                if (!assignedSeats[i]) availableSeats.push(i);
+            }
+            const randomSeat = availableSeats[Math.floor(Math.random() * availableSeats.length)];
+            assignedSeats[randomSeat] = name;
+            names.push(name);
+            output(`結果: ${name} -> 座席 ${randomSeat}`);
+            displayCurrentSeats();
+            currentIndex++;
+
+            if (currentIndex < numSeats) {
+                const continueRandom = confirm('次の人を入力しますか？');
+                if (!continueRandom) {
+                    showFinalResult();
+                }
+            } else {
+                showFinalResult();
+            }
+            document.getElementById('random_name').value = '';
+        }
+
+        function showFinalResult() {
+            output('\n最終的な座席割り当て:', true);
+            for (let i = 1; i <= numSeats; i++) {
+                if (assignedSeats[i]) {
+                    output(`座席 ${i}: ${assignedSeats[i]}`, true);
+                } else {
+                    output(`座席 ${i}: 該当なし`, true);
+                }
+            }
+            document.getElementById('assign-random-section').style.display = 'none';
+            document.getElementById('final-section').style.display = 'block';
+        }
+
+        function resetProgram() {
+            numSeats = 0;
+            assignedSeats = {};
+            names = [];
+            currentIndex = 0;
+            document.getElementById('output').innerHTML = ''; // innerHTMLでリセット
+            document.getElementById('final-section').style.display = 'none';
+            document.getElementById('seat-count-section').style.display = 'block';
+            document.getElementById('num_seats').value = '';
+            document.getElementById('specify_choice').value = '';
+            document.getElementById('specific_name').value = '';
+            document.getElementById('specific_seat').value = '';
+            document.getElementById('random_name').value = '';
+        }
+    </script>
+</body>
+</html>
